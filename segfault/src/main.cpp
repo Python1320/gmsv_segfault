@@ -1,7 +1,7 @@
 #include "main.h"
 
 
-			static const char* luatypes[] = 
+			/*static const char* luatypes[] = 
 			{
 				"nil",
 				"bool",
@@ -42,15 +42,20 @@
 				0,
 				0,
 				0,
+				0,
+				0,
+				0,
+				0
 				
 			};
-
-extern "C" int lua_dostackprint(lua_State *l,bool nondestructive) {
-    int i;
-	log("\nSTACK (");
-    int top = lua_gettop(l);
-    logf("%d): ",top);
- 
+			*/
+//extern "C" 
+inline int lua_dostackprint(lua_State *l,bool nondestructive) {
+    int i,top;
+	log("\nSTACK:");
+    top = lua_gettop(l);
+    logf("%d",top);
+	log(":\n");
     for (i = 1; i <= top; i++) 
 	{
 		int t = lua_type(l, i);
@@ -90,12 +95,12 @@ extern "C" int lua_dostackprint(lua_State *l,bool nondestructive) {
 }
 
 
-void lua_stacktrace(lua_State* L)
+inline void lua_stacktrace(lua_State* L)
 {
     lua_Debug entry;
     int depth = 0;
 
-	log("\nLua Trace:\n");
+	log("\nLUATRACE:\n");
     while (lua_getstack(L, depth, &entry))
     {
         log("> ");
@@ -111,8 +116,8 @@ void lua_stacktrace(lua_State* L)
 			log("\n");
 		}
 		if (depth>4) {
-			log("<skipping rest>\n");
-			break;
+			log("SKIPSTACK:MAXDEPTH\n");
+			return;
 		}
     }
 }
@@ -173,7 +178,7 @@ bool find_shared_object_name(const void* ip, struct file_match* match) {
 
 #define DEMANGLE_LEN 511
 char *demanglealloc;
-char * demangle_func(const char * funcName) {
+inline char * demangle_func(const char * funcName) {
 	size_t alloclen = DEMANGLE_LEN;
 	int status = 0;
 	
@@ -256,14 +261,14 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	if (in_fail) {
 		for(i = 0; signal_handlers[i].type != -1; ++i)
 			signal(signal_handlers[i].type,SIG_DFL);
-		log("We were recalled, bailing out!\n");
+		log("RECALLED:BAILING_OUT\n");
 		return;
 	};
 	in_fail = true;
 
 	if (crash_sg_nr == SIGUSR2) 
 	{
-		log("===== SIGUSR2 TRACE DUMP =====\n");
+		log("SIGUSR2:BEGIN\n");
 	}
 	
 	// DO FUCKING NOTHING
@@ -280,7 +285,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 				};//.sa_sigaction(code, crash_info, context);
 				if (signal_handlers[i].sigaction.sa_sigaction!=isoursih.sa_sigaction) 
 				{
-					log("Our signal action was not the one in handling this signal???\n");
+					log("WARNING:REGISTERED SIGNAL NOT US\n");
 				}
 				
 				restored = true; // always true
@@ -298,30 +303,35 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	
 	checkpoint {
 		caller_address = (void *) ctx->uc_mcontext.gregs [REG_EIP]; 
-		log("\n[CRASH]\tSig ");
-		pid_t cur_thread=syscall(SYS_gettid);
-		if ( main_thread!=cur_thread ) {
-			log("(Not on main thread!) ");
-		}
-		
-		logf("%i at fault %p, caller = %p with sicode %i(%s) time=",
-				crash_sg_nr, crash_info->si_addr,(void *)caller_address,crash_info->si_code ,
-
-			(crash_sg_nr==SIGSEGV)?
-				
-					(crash_info->si_code==SEGV_MAPERR?"Address not mapped":crash_info->si_code==SEGV_ACCERR?"Invalid permissions":"Unknown sigsegv")
-			:"N/A"
-		);
+		log("\nCRASH:");
+		log(" Signal=");
+			logf("%i",crash_sg_nr);
+			logf(",%i",crash_info->si_code);
+			pid_t cur_thread=syscall(SYS_gettid);
+			
+			if ( main_thread!=cur_thread ) {
+				log(" | THREAD_CRASH!");
+			}
+			log("\n");
+		log("\nTIME:");
+			logf("%lu",time(NULL));
+			log("\n");
+			
+		log("Fault=");
+		logf("%p",crash_info->si_addr);
+		log(" Caller=");
+		logf("%p",(void *)caller_address);
+		log("\n");
 	} else  { log("Failed printing signal err!\n"); }
 	
-	logf(" %lu\n",time(NULL));
+	
 		
 	checkpoint {
-		logf( "R> gs %x fs: %x es: %x ds: %x edi: %x esi: %x ebp: %x esp: %x ebx: %x edx: %x ecx: %x\n",
+		logf( "REG: gs %x fs: %x es: %x ds: %x edi: %x esi: %x ebp: %x esp: %x ebx: %x edx: %x ecx: %x\n",
 				 ctx->uc_mcontext.gregs [REG_GS], ctx->uc_mcontext.gregs [REG_FS], ctx->uc_mcontext.gregs [REG_ES], ctx->uc_mcontext.gregs [REG_DS],
 				 ctx->uc_mcontext.gregs [REG_EDI], ctx->uc_mcontext.gregs [REG_ESI], ctx->uc_mcontext.gregs [REG_EBP], ctx->uc_mcontext.gregs [REG_ESP],
 				 ctx->uc_mcontext.gregs [REG_EBX], ctx->uc_mcontext.gregs [REG_EDX], ctx->uc_mcontext.gregs [REG_ECX], ctx->uc_mcontext.gregs [REG_EAX]);
-				logf( " > eax: %x trap: %u err: %x eip: %x cs: %x flag: %x sp: %x ss: %x cr2: %lx\n",
+				logf( "REG: eax: %x trap: %u err: %x eip: %x cs: %x flag: %x sp: %x ss: %x cr2: %lx\n",
 				 ctx->uc_mcontext.gregs [REG_TRAPNO], ctx->uc_mcontext.gregs [REG_ERR], ctx->uc_mcontext.gregs [REG_EIP], ctx->uc_mcontext.gregs [REG_CS],
 				 ctx->uc_mcontext.gregs [REG_EFL], ctx->uc_mcontext.gregs [REG_UESP], ctx->uc_mcontext.gregs [REG_SS], ctx->uc_mcontext.cr2
 		);
@@ -342,7 +352,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	checkpoint {
 		size_t SET_IP=0;
 		if (crash_sg_nr==SIGSEGV && caller_address<0xFF) {
-			log("\nStack trace (Called NULL function? Trying to repair. EIP <- ESP == ");
+			log("\nTRACE: (Called NULL function? Trying to repair. EIP <- ESP == ");
 			size_t ESP(*reinterpret_cast<size_t *> (ctx->uc_mcontext.gregs[REG_ESP]));
 			logf("%p",ESP);
 			if (ESP>0xFF) {
@@ -354,7 +364,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 			log("):\n");
 			
 		} else {
-			log("\nStack trace:\n");
+			log("\nCSTACK:\n");
 		}
 		
 		
@@ -376,7 +386,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 				do {
 					j++;
 					if (j>50) {
-						log("\n<Too many frames, skipped rest>\n");
+						log("\nEND:toomanyframes\n");
 						break;
 					}
 					
@@ -391,7 +401,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					
 					
 					if (strstr(fname,"Host_RunFrame") != NULL) {
-						log( "<Snip Host Frames>\n");
+						log( "SNIP:Host Frames\n");
 						break;
 					}
 					
@@ -408,7 +418,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 						fallback_name = info.dli_sname;
 					}
 					
-					logf ("> %i\t[%p,%p] %s +%p ", j, pc, sp, fallback_name?fallback_name:demangled?demangled:( (fname[0]=='\0')?"?":fname), offset);
+					logf ("> %2i %p %p %s +%p ", j, pc, sp, fallback_name?fallback_name:demangled?demangled:( (fname[0]=='\0')?"?":fname), offset);
 
 					if (dladdr(pc, &info)) {
 						log(" \t\t@ ");
@@ -421,14 +431,14 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 						}
 						
 						uintptr_t relative = ((uintptr_t)pc)-((uintptr_t)info.dli_fbase);
-						logf("+%p",relative);
+						logf(" +%p",relative);
 					} else {
 						log(" \t\t<dladdr fail>");
 					}
 
 					
 
-					log(".\n");
+					log("\n");
 					
 					/*
 					struct file_match match;
@@ -439,7 +449,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					
 					err = unw_step(&cursor);
 					if (err<=0) {
-						log("END: ");
+						log("UNWIND: ");
 						log(unw_strerror(err));
 						log("\n");
 						break;
@@ -447,10 +457,10 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					
 					
 				} while (true);
-			} else  { 	log("\nFailed printing C stacktrace: "); log(unw_strerror(err));log("\n");  };
-		} else  { 		log("\nFailed printing C stacktrace: "); log(unw_strerror(err));log("\n");  };
+			} else  { 	log("\nFAIL: C stack trace: "); log(unw_strerror(err));log("\n");  };
+		} else  { 		log("\nFAIL: C stack trace: "); log(unw_strerror(err));log("\n");  };
 		
-	} else  { log("\nFailed printing C stacktrace!?\n"); };
+	} else  { log("\nFAIL: C Stack Trace\n"); };
 	
 	
 
@@ -534,21 +544,25 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	///////////////////
 	
 	checkpoint {
-		lua_stacktrace(GLUA);
-		lua_dostackprint(GLUA,crash_sg_nr == SIGUSR2);
-	} else  { log("Failed printing lua stack(trace)!\n"); }
+		if (GLUA) {
+			lua_stacktrace(GLUA);
+			lua_dostackprint(GLUA,crash_sg_nr == SIGUSR2);
+		} else {
+			log("\nGLUA is NULL! (map change?)\n");
+		}
+	} else  { log("\nFAIL: LUASTACK!\n"); }
 	
 	in_fail = false;
 	shouldjump = 0;
 	
 	if (crash_sg_nr == SIGUSR2) 
 	{
-		log("===== END SIGUSR2 TRACE DUMP =====\n");
+		log("SIGUSR2:END\n\n");
 		errno = saved_errno;
 		return;
 	}
 	
-	log("Unloading crashhandlers... ");
+	log("Unloading... ");
 	for(i = 0; signal_handlers[i].type != -1; ++i)
 		signal(signal_handlers[i].type,SIG_DFL);
 
@@ -559,20 +573,20 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 			if(signal_handlers[i].old_sigaction.sa_flags & SA_SIGINFO)
 			{
 				if (signal_handlers[i].old_sigaction.sa_sigaction!=SIG_IGN && signal_handlers[i].old_sigaction.sa_sigaction != SIG_DFL) {
-					logf("calling previous crash handler with our SA_SIGINFO\n\n");
+					logf("exit (siginfo)...\n");
 					signal_handlers[i].old_sigaction.sa_sigaction(crash_sg_nr, crash_info, crash_ucontext);
 				} else {
-					log("no other crashhandlers found\n");					
+					//log("no other crashhandlers found\n");					
 				}
 				break;
 			}
 			else
 			{
 				if (signal_handlers[i].old_sigaction.sa_handler!=SIG_IGN && signal_handlers[i].old_sigaction.sa_handler != SIG_DFL) {
-					logf("calling previous crash handler\n\n");
+					logf("exit...\n");
 					signal_handlers[i].old_sigaction.sa_handler(crash_sg_nr);
 				} else {
-					log("no other crashhandlers found\n");
+					//log("no other crashhandlers found\n");
 				}
 				break; 
 			}
@@ -653,9 +667,9 @@ void setup_outfile() {
 		}
 	}
 	
-	log("Logfile start");
-	logf(" at %lu\n",time(NULL));
-	
+	log("START:");
+	logf("%lu",time(NULL));
+	log("\n");
 }
 
 
@@ -672,29 +686,11 @@ void disable_ctrl_c(int sigid) {
 	errno=oerrno;
 };
 
-extern "C" __attribute__( ( visibility("default") ) ) int gmod13_open( lua_State* L )
-{
+inline void Setup() {
 	setup_outfile();
 	main_thread = syscall(SYS_gettid);
-	#ifdef CRASH_DEBUG
-	bfd_init(); // maybe saves us from a crash
-	
-	lua_register(L,"dumpstack",lua_dostackprint);
-	lua_register(L,"docrash",lua_dosegfault);
-	lua_register(L,"docrash_stack",lua_dostack);
-	
-	lua_register(L,"docrash_nullptr",lua_docrash_nullptr);
-	lua_register(L,"docrash_thread",lua_docrash_thread);
-	#endif
-	
-	GLUA = L;
-	
-	if (sig_loaded) {
-		log("\n[SigSegv]\tAlready loaded.\n");
-		return 0;
-	}
-	sig_loaded = true;
-	
+	//bfd_init(); // maybe saves us from a crash
+
 	#ifdef CRASH_DEBUG
 	// init this shit, maybe it works
 	void * dummy_trace_array[1];
@@ -716,11 +712,7 @@ extern "C" __attribute__( ( visibility("default") ) ) int gmod13_open( lua_State
 	demanglealloc = (char *) malloc(DEMANGLE_LEN);
 	demanglealloc[0]=0x00;
 
-	
 	signal(SIGINT,disable_ctrl_c);
-	
-	
-
 	
 	// HANDLERS
 	for(unsigned i = 0; signal_handlers[i].type != -1; ++i)
@@ -736,11 +728,36 @@ extern "C" __attribute__( ( visibility("default") ) ) int gmod13_open( lua_State
 	}
 	
 	//feenableexcept (FE_INVALID);
+}
+
+extern "C" __attribute__( ( visibility("default") ) ) int gmod13_open( lua_State* L )
+{
+	GLUA = L;
+
+	#ifdef CRASH_DEBUG
+	//lua_register(L,"dumpstack",lua_dostackprint);
+	lua_register(L,"docrash",lua_dosegfault);
+	lua_register(L,"docrash_stack",lua_dostack);
+	
+	lua_register(L,"docrash_nullptr",lua_docrash_nullptr);
+	lua_register(L,"docrash_thread",lua_docrash_thread);
+	#endif
+	
+	
+	if (sig_loaded) {
+		log("\n[SigSegv]\tReloaded...\n");
+		return 0;
+	}
+	sig_loaded = true;
+	
+	Setup();
 	return 0;
 }
 
 extern "C" __attribute__( ( visibility("default") ) ) int gmod13_close( lua_State* L )
 {
+	log("[SigSegv]\tLua unload.\n");
+	GLUA=NULL;
 	return 0;
 }
 
