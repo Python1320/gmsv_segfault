@@ -1,13 +1,12 @@
 dofile("../common.lua")
 
-RequireDefaultlibs()
---RequireRuntime()
+-- apt-get install libunwind7-dev binutils-dev
 
 
-SOLUTION"luasocket"
+SOLUTION"segfault"
 	INCLUDES	"lua51"
 	defines		{"NDEBUG"}
-	
+	removedefines	"_GNU_SOURCE"
 	WINDOWS()
 	LINUX()
 
@@ -18,6 +17,6 @@ SOLUTION"luasocket"
 		configuration	("windows")
 		configuration	("linux")
 			links"iberty"
-			links_static"libunwind"
+			links_static"unwind"
 			links"pthread"
 						

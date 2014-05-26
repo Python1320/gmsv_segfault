@@ -1,3 +1,4 @@
+#define CRASH_DEBUG
 #include "main.h"
 
 
@@ -55,20 +56,23 @@ inline int lua_dostackprint(lua_State *l,bool nondestructive) {
 	log("\nSTACK:");
     top = lua_gettop(l);
     logf("%d",top);
-	log(":\n");
+	log(": ");
     for (i = 1; i <= top; i++) 
 	{
 		int t = lua_type(l, i);
  		if (i>1) { log(", "); };
         switch (t) {
-            case LUA_TSTRING:
+            case LUA_TSTRING: {
 				/*if (nondestructive) {
 				    log("<string>");
 				} else*/
 					log("'");
-					log(lua_tostring(l, i));
+					size_t len=0;
+					const char * str = lua_tolstring(l, i,&len);
+					log(str,len);
 					log("'");
                 break;
+			}
             case LUA_TBOOLEAN:
                 log("B");
 				log(lua_toboolean(l, i) ? "1" : "0");
@@ -80,18 +84,46 @@ inline int lua_dostackprint(lua_State *l,bool nondestructive) {
                 log("N");
 				logf("%g", lnum);
                 break;
+			case LUA_TNONE:
+				logf ("<non>");
+				break;
+			case LUA_TLIGHTUSERDATA:
+				logf ("<ptr>");
+				break;
+			case LUA_TTABLE:
+				logf ("<tbl>");
+				break;
+			case LUA_TNIL:
+				logf ("<nil>");
+				break;
+			case LUA_TFUNCTION:
+				logf ("<func>");
+				break;
+			case LUA_TUSERDATA:
+				if (nondestructive) {
+					logf ("<UserData>");
+				} else {
+					log("<");
+					log(lua_typename(l, t));
+					log(">");
+				}
+				break;
             default:
-                log("<");
-				//log(luatypes[t]);
-				log(lua_typename(l, t));
-				/*log(" = ");
-				log(lua_tostring(l, i));
-				*/
+                log("< ");
+				if (nondestructive) {
+					logf("unknown=%d",t);
+				} else {
+					log(lua_typename(l, t));
+				}
 				log(">");
                 break;
         }
     }
     log(".\n");
+	if (nondestructive) return 0;
+		
+    log(".\n");
+	
 }
 
 
@@ -100,10 +132,10 @@ inline void lua_stacktrace(lua_State* L)
     lua_Debug entry;
     int depth = 0;
 
-	log("\nLUATRACE:\n");
+	log("\nLUA\n");
     while (lua_getstack(L, depth, &entry))
     {
-        log("> ");
+        log("| ");
 		int status = lua_getinfo(L, "Sln", &entry);
         if (status) {
 			logf("%i\t",depth);
@@ -115,8 +147,8 @@ inline void lua_stacktrace(lua_State* L)
 		} else {
 			log("\n");
 		}
-		if (depth>4) {
-			log("SKIPSTACK:MAXDEPTH\n");
+		if (depth>5) {
+			log("END:maxdepth\n");
 			return;
 		}
     }
@@ -206,7 +238,11 @@ inline char * demangle_func(const char * funcName) {
 	}
 	return NULL;
 }
-
+void lua_hookhack(lua_State* L, lua_Debug *ar) {
+	lua_sethook(GLUA,NULL,0,0);
+	lua_pushstring(L,"SIGUSR1 HACK <EPICFAIL HAS OCCURED>");
+	lua_error(L);
+}
 
 int saved_errno=0;
 static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontext) {
@@ -233,6 +269,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		return;
 	}*/
 	
+
 	// restore...
 	bool restored=false;
 	struct sigaction isoursih;
@@ -243,12 +280,21 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	char **            messages;
 	int                size, i;
 	
+	if (sig_nr == SIGUSR1) 
+	{
+		log("SIGUSR1:lua_sethook hack\n");
+		lua_sethook(GLUA,lua_hookhack,LUA_MASKCOUNT,10);
+		return;
+	}
+	
+	
 	
 	if (in_fail && shouldjump==1 && jumps<100) {
 		jumps++;
 		shouldjump=0;
-		log(" !!! ERROR !!! SIGHANDLER CRASHED, RECOVERING: ");
+		log("FAIL:debugger_crashed");
 		siglongjmp(jmpbuf, 1);
+		log("FAIL:siglongjmp");
 	}
 	
 	saved_errno = errno;
@@ -269,7 +315,9 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	if (crash_sg_nr == SIGUSR2) 
 	{
 		log("SIGUSR2:BEGIN\n");
-	}
+	}	
+
+
 	
 	// DO FUCKING NOTHING
 	if (crash_sg_nr != SIGUSR2) {
@@ -351,8 +399,8 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	
 	checkpoint {
 		size_t SET_IP=0;
-		if (crash_sg_nr==SIGSEGV && caller_address<0xFF) {
-			log("\nTRACE: (Called NULL function? Trying to repair. EIP <- ESP == ");
+		if (crash_sg_nr==SIGSEGV && caller_address<(void*)0xFF) {
+			log("\nTRACE: (Info lost, called NULL function? Recovering at least return info: EIP <- ESP ");
 			size_t ESP(*reinterpret_cast<size_t *> (ctx->uc_mcontext.gregs[REG_ESP]));
 			logf("%p",ESP);
 			if (ESP>0xFF) {
@@ -364,7 +412,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 			log("):\n");
 			
 		} else {
-			log("\nCSTACK:\n");
+			log("\nTRACE\n");
 		}
 		
 		
@@ -372,9 +420,11 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		
 		
 		unw_cursor_t    cursor;
+
 		unw_context_t   context;
 		int err=0;
 		err = unw_getcontext(&context);
+		bool got_frame=false;
 		if (err==0) {
 			err = unw_init_local(&cursor, &context);
 			if (SET_IP>0)
@@ -386,7 +436,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 				do {
 					j++;
 					if (j>50) {
-						log("\nEND:toomanyframes\n");
+						log("\nEND:big_stack\n");
 						break;
 					}
 					
@@ -401,7 +451,9 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					
 					
 					if (strstr(fname,"Host_RunFrame") != NULL) {
-						log( "SNIP:Host Frames\n");
+						log( "END:Host_RunFrame\n");						
+						got_frame = true;
+						
 						break;
 					}
 					
@@ -413,14 +465,15 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	
 					Dl_info info;
 
-					char * fallback_name = NULL;
+					const char * fallback_name = NULL;
 					if ( (!demangled || *demangled=='\0') && (fname[0]=='\0') ) {			
 						fallback_name = info.dli_sname;
 					}
 					
-					logf ("> %2i %p %p %s +%p ", j, pc, sp, fallback_name?fallback_name:demangled?demangled:( (fname[0]=='\0')?"?":fname), offset);
-
-					if (dladdr(pc, &info)) {
+					logf("%2i %p %p ", j, pc, sp);
+					logf("%s +%p ",fallback_name?fallback_name:demangled?demangled:( (fname[0]=='\0')?"?":fname), offset);
+					if (unw_is_signal_frame(&cursor)>0) log("(SF)");
+					if (dladdr((void *)pc, &info)) {
 						log(" \t\t@ ");
 						if ( (info.dli_fname!=NULL) && (*info.dli_fname!='\0') ) {
 							log(basename(info.dli_fname));
@@ -449,7 +502,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					
 					err = unw_step(&cursor);
 					if (err<=0) {
-						log("UNWIND: ");
+						log("END:UNWIND: ");
 						log(unw_strerror(err));
 						log("\n");
 						break;
@@ -460,8 +513,12 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 			} else  { 	log("\nFAIL: C stack trace: "); log(unw_strerror(err));log("\n");  };
 		} else  { 		log("\nFAIL: C stack trace: "); log(unw_strerror(err));log("\n");  };
 		
+		//if (got_frame) { // todo: stack overflow
+		//	log("trying to resume\n");
+		//	return;
+		//}
+		
 	} else  { log("\nFAIL: C Stack Trace\n"); };
-	
 	
 
 	/*
@@ -546,11 +603,19 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	checkpoint {
 		if (GLUA) {
 			lua_stacktrace(GLUA);
+		} else {
+			log("\nGLUA is NULL! (map change?)\n");
+		}
+	} else  { log("\nFAIL:luatrace\n"); }
+	
+	
+	checkpoint {
+		if (GLUA) {
 			lua_dostackprint(GLUA,crash_sg_nr == SIGUSR2);
 		} else {
 			log("\nGLUA is NULL! (map change?)\n");
 		}
-	} else  { log("\nFAIL: LUASTACK!\n"); }
+	} else  { log("\nFAIL:luastack\n"); }
 	
 	in_fail = false;
 	shouldjump = 0;
@@ -562,7 +627,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		return;
 	}
 	
-	log("Unloading... ");
+	log("EOF:U");
 	for(i = 0; signal_handlers[i].type != -1; ++i)
 		signal(signal_handlers[i].type,SIG_DFL);
 
@@ -572,8 +637,8 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		{
 			if(signal_handlers[i].old_sigaction.sa_flags & SA_SIGINFO)
 			{
-				if (signal_handlers[i].old_sigaction.sa_sigaction!=SIG_IGN && signal_handlers[i].old_sigaction.sa_sigaction != SIG_DFL) {
-					logf("exit (siginfo)...\n");
+				if ((void*)signal_handlers[i].old_sigaction.sa_sigaction!=(void*)SIG_IGN && (void*)signal_handlers[i].old_sigaction.sa_sigaction != (void*)SIG_DFL) {
+					logf("ES\n");
 					signal_handlers[i].old_sigaction.sa_sigaction(crash_sg_nr, crash_info, crash_ucontext);
 				} else {
 					//log("no other crashhandlers found\n");					
@@ -583,7 +648,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 			else
 			{
 				if (signal_handlers[i].old_sigaction.sa_handler!=SIG_IGN && signal_handlers[i].old_sigaction.sa_handler != SIG_DFL) {
-					logf("exit...\n");
+					logf("E\n");
 					signal_handlers[i].old_sigaction.sa_handler(crash_sg_nr);
 				} else {
 					//log("no other crashhandlers found\n");
@@ -615,8 +680,8 @@ extern "C" int lua_dosegfault(lua_State *L) {
 
 extern "C" int lua_docrash_nullptr(lua_State *L) {
 	log("Doing nullptr call...\n");
-	void (*pFunc)(void) = NULL;  
-	pFunc();
+	void (*pFunc)(unsigned int) = NULL; 
+	pFunc(0xDEADBEEF);
 	return 0;
 };
 
@@ -628,7 +693,7 @@ extern "C" int lua_dostack(lua_State *L) {
 };
 
 
-void * thread1()
+void * thread1(void * a)
 {
     log("<THREAD START>\n");
 	long t1 = time(NULL)+3;

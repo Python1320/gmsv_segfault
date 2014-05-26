@@ -38,33 +38,9 @@
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 
-#define _GNU_SOURCE
 #include <fenv.h>
 
-//////////////////77
-static const char *
 
-unw_strerror(int err)
-{
-   if (err < 0) {
-      err = -err;
-   }
-   switch (err) {
-   case UNW_ESUCCESS:	    return "No error";
-   case UNW_EUNSPEC:	    return "Unspecified (general) error";
-   case UNW_ENOMEM:	    return "Out of memory";
-   case UNW_EBADREG:	    return "Bad register number";
-   case UNW_EREADONLYREG:   return "Attempt to write read-only register";
-   case UNW_ESTOPUNWIND:    return "Stop unwinding";
-   case UNW_EINVALIDIP:	    return "Invalid IP";
-   case UNW_EBADFRAME:	    return "Bad frame";
-   case UNW_EINVAL:	    return "Unsupported operation or bad value";
-   case UNW_EBADVERSION:    return "Unwind info has unsupported version";
-   case UNW_ENOINFO:        return "No unwind info found";
-   default:		    return "Unknown error";
-   }
-}
-////////////////////////
 
 
 
@@ -89,13 +65,14 @@ FILE * outstream = stderr;
 int logfile = 0;
 static char __log_arr__[255]; 
 int __log_len__ = 0;
+int ___foo_ret___ = 0;
 
 // not safe but what can you do...
 
-void log(char * s) {
-	static const char nullstr = "<NULLSTR>";
-	if (s==NULL) {
-		s=nullstr;
+void log(const char * str) {
+	char * s = (char *)"<NULLSTR>";
+	if (str!=NULL) {
+		s=(char *)str;
 	}
 	int len = strlen(s);
 	if (logfile) {
@@ -103,11 +80,21 @@ void log(char * s) {
 	}
 	write (2, s, strlen(s));
 };
+void log(const char * str, int len) {
+	char * s = (char *)"<NULLSTR>";
+	if (str!=NULL) {
+		s=(char *)str;
+	}
+	if (logfile) {
+		write (logfile, s, len); 
+	}
+	write (2, s, len);
+};
 
 //#define log(s) if (logfile) write (logfile, (s==NULL)?"NULL":s, strlen ((s==NULL)?"NULL":s)); write (2, (s==NULL)?"NULL":s, strlen ((s==NULL)?"NULL":s))
 #define logf(a,...) __log_len__ = snprintf (__log_arr__, 255,a, ##__VA_ARGS__);\
-					if (logfile) write (logfile,	__log_arr__, __log_len__ ); \
-					write (2, 		__log_arr__, __log_len__ )
+					if (logfile) ___foo_ret___ = write (logfile,	__log_arr__, __log_len__ ); \
+					___foo_ret___ = write (2, 		__log_arr__, __log_len__ )
 
 struct Handler
 {	int type;
@@ -122,6 +109,7 @@ Handler signal_handlers[] =
 	{SIGBUS},
 	{SIGQUIT},
 	{SIGILL},
+	{SIGUSR1},
 	{SIGUSR2},
 	{SIGABRT},
 	//{SIGFPE},
