@@ -12,8 +12,6 @@ SOLUTION"luasocket"
 	LINUX()
 
 	PROJECT()
-		language"C"
-		files	{"src/*.c"}
 		
 		INCLUDES	"lua51"
 		
@@ -22,4 +20,4 @@ SOLUTION"luasocket"
 			links"iberty"
 			links_static"libunwind"
 			links"pthread"
-			
+						
