@@ -166,49 +166,13 @@ ucontext_t * ctx;
 static sigjmp_buf                   jmpbuf;
 static volatile sig_atomic_t        shouldjump = 0;
 unsigned char jumps=0;
-#define checkpoint  shouldjump = 1; if (sigsetjmp(jmpbuf,1)==0) \
 
-/*
-struct file_match {
-	// in
-	const void *address;
-	
-	// out
-	const char *file;
-	void *base;
-};
+#define checkpoint  shouldjump = 1; if (sigsetjmp(jmpbuf,1)==0)
 
-static int iterate_libraries_callback(struct dl_phdr_info *info,
-		size_t size, void *data)
-{
-	struct file_match *match = (struct file_match*) data;
-	// This code is modeled from Gfind_proc_info-lsb.c:callback() from libunwind 
-	long n;
-	const ElfW(Phdr) *phdr;
-	ElfW(Addr) load_base = info->dlpi_addr;
-	phdr = info->dlpi_phdr;
-	for (n = info->dlpi_phnum; --n >= 0; phdr++) {
-		if (phdr->p_type == PT_LOAD) {
-			ElfW(Addr) vaddr = phdr->p_vaddr + load_base;
-			if ((uintptr_t)match->address >= vaddr && (uintptr_t)match->address < vaddr + phdr->p_memsz) {
-				
-				match->file = info->dlpi_name;
-				match->base = (void*)(uintptr_t)info->dlpi_addr;
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-bool find_shared_object_name(const void* ip, struct file_match* match) {
-	match->address = ip;
-	dl_iterate_phdr(iterate_libraries_callback, match);
-	return;
-}
-
-*/
+#define checkpoint_end shouldjump = 0
 
 #define DEMANGLE_LEN 511
+
 char *demanglealloc;
 inline char * demangle_func(const char * funcName) {
 	size_t alloclen = DEMANGLE_LEN;
@@ -246,40 +210,16 @@ void lua_hookhack(lua_State* L, lua_Debug *ar) {
 
 int saved_errno=0;
 static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontext) {
-	/*
-	if (sig_nr==SIGFPE) {
-		fedisableexcept(FE_INVALID);
-		//signal(sig_nr,SIG_IGN);
-		int fe_code = info->si_code;
-		switch (fe_code)
-		{
-			case FPE_FLTDIV: log("FPE: FPE_FLTDIV\n"); break;
-			case FPE_FLTINV: log("."); break;
-			case FPE_FLTOVF: log("FPE: FPE_FLTOVF\n"); break;
-			case FPE_FLTUND: log("FPE: FPE_FLTUND\n"); break;
-			case FPE_FLTRES: log("FPE: FPE_FLTRES\n"); break;
-			case FPE_FLTSUB: log("FPE: FPE_FLTSUB\n"); break;
-			case FPE_INTDIV: log("FPE: FPE_INTDIV\n"); break;
-			case FPE_INTOVF: log("FPE: FPE_INTOVF\n"); break;
-			default: log("FPE: ERR?\n"); break;
-		 }
-		ucontext_t* uc = (ucontext_t *)ucontext;
-        uc->uc_mcontext.gregs[REG_EIP] += 3;
-		
-		return;
-	}*/
 	
 
-	// restore...
 	bool restored=false;
 	struct sigaction isoursih;
 	void * caller_address;
 	
-	//void * realarray[BACKTRACE_DEPTH];
-	//void ** array=realarray;
 	char **            messages;
 	int                size, i;
 	
+	// SIGUSR1 == watchdog signaled us to break from lua fuckups
 	if (sig_nr == SIGUSR1) 
 	{
 		log("SIGUSR1:lua_sethook hack\n");
@@ -288,13 +228,14 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	}
 	
 	
-	
+	// we're recalled within a checkpoint
 	if (in_fail && shouldjump==1 && jumps<100) {
 		jumps++;
 		shouldjump=0;
 		log("FAIL:debugger_crashed");
 		siglongjmp(jmpbuf, 1);
 		log("FAIL:siglongjmp");
+		return;
 	}
 	
 	saved_errno = errno;
@@ -319,14 +260,12 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 
 
 	
-	// DO FUCKING NOTHING
+	// Wtf does this do
 	if (crash_sg_nr != SIGUSR2) {
 		for(i = 0; signal_handlers[i].type != -1; ++i)
 		{
 			if(signal_handlers[i].type == crash_sg_nr)
 			{		
-				//sigemptyset(&signal_handlers[i].sigaction.sa_mask);
-				//signal_handlers[i].sigaction.sa_flags = SA_ONSTACK | SA_RESTART | SA_SIGINFO;
 				
 				if (sigaction(crash_sg_nr,/*&signal_handlers[i].sigaction*/NULL,&isoursih) != 0) {
 					//log("Restoring our signal failed???\n");
@@ -387,18 +326,12 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	
 	//////////////////
 	
-	/*
-	checkpoint {
 
-        void * p = __builtin_return_address(0);
-        logf("__builtin_return_address = %x\n", p);
-       // p = __builtin_return_address(1);
-       // logf("__builtin_return_address = %x\n", p);
-	}
-	*/
 	
-	checkpoint {
+	checkpoint {	// print C stack
 		size_t SET_IP=0;
+		
+		// check for invalid program counter
 		if (crash_sg_nr==SIGSEGV && caller_address<(void*)0xFF) {
 			log("\nTRACE: (Info lost, called NULL function? Recovering at least return info: EIP <- ESP ");
 			size_t ESP(*reinterpret_cast<size_t *> (ctx->uc_mcontext.gregs[REG_ESP]));
@@ -416,62 +349,82 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		}
 		
 		
-		
-		
-		
-		unw_cursor_t    cursor;
-
-		unw_context_t   context;
+		static unw_context_t   context;
+		static unw_cursor_t    cursor;
 		int err=0;
+		bool found_PhysFrame = false;
 		err = unw_getcontext(&context);
-		bool got_frame=false;
+		//bool got_frame=false;
 		if (err==0) {
+			
 			err = unw_init_local(&cursor, &context);
+			
+			// program counter sucks, change it
 			if (SET_IP>0)
 				unw_set_reg(&cursor, UNW_REG_IP, SET_IP);
+				
 			if (err==0) {
 				
-				//
 				int j=0;
-				do {
+				while(true) // unwind loop
+				{ 
 					j++;
-					if (j>50) {
+					if (j >= 0xFF) // recursive overflow maybe
+					{
 						log("\nEND:big_stack\n");
 						break;
 					}
 					
 					unw_word_t  offset, pc, sp;
-					char        fname[255];
+					char        func_name[255];
 
 					unw_get_reg(&cursor, UNW_REG_IP, &pc);
 					unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
-					fname[0] = '\0';
-					(void) unw_get_proc_name(&cursor, fname, sizeof(fname), &offset);
+					func_name[0] = '\0';
+					(void) unw_get_proc_name(&cursor, func_name, sizeof(func_name), &offset);
 					
+					if (strstr(func_name,"PhysFrame") != NULL) {
+						found_PhysFrame = true;
+					}
 					
-					if (strstr(fname,"Host_RunFrame") != NULL) {
-						log( "END:Host_RunFrame\n");						
-						got_frame = true;
+					if (strstr(func_name,"Host_RunFrame") != NULL) {
+						//got_frame = true;
 						
+						// Resume hack :|
+						if (found_PhysFrame && SET_IP==0) {
+							
+							in_fail = false;
+							shouldjump = 0;
+							
+							log("Trying to resume executing after failed physics\n");
+							
+							SetPhysPaused(true);
+							
+							int reterr = unw_resume(&cursor);
+							log("Resume Failed: ");log(unw_strerror(reterr));log("\n"); 
+							in_fail = true;
+							return;
+						}
+						
+						log( "END:Host_RunFrame\n");	
 						break;
 					}
 					
-					
 					char * demangled = NULL;
-					if (fname[0]!='\0') {
-						demangled = demangle_func(fname);
+					if (func_name[0]!='\0') {
+						demangled = demangle_func(func_name);
 					}
 	
 					Dl_info info;
 
 					const char * fallback_name = NULL;
-					if ( (!demangled || *demangled=='\0') && (fname[0]=='\0') ) {			
+					if ( (!demangled || *demangled=='\0') && (func_name[0]=='\0') ) {			
 						fallback_name = info.dli_sname;
 					}
 					
 					logf("%2i %p %p ", j, pc, sp);
-					logf("%s +%p ",fallback_name?fallback_name:demangled?demangled:( (fname[0]=='\0')?"?":fname), offset);
+					logf("%s +%p ",fallback_name?fallback_name:demangled?demangled:( (func_name[0]=='\0')?"?":func_name), offset);
 					if (unw_is_signal_frame(&cursor)>0) log("(SF)");
 					if (dladdr((void *)pc, &info)) {
 						log(" \t\t@ ");
@@ -490,15 +443,8 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					}
 
 					
-
 					log("\n");
-					
-					/*
-					struct file_match match;
-					find_shared_object_name((const void*) pc,&match);
-					logf(" - %s\n",match.file);*/
-
-					
+										
 					
 					err = unw_step(&cursor);
 					if (err<=0) {
@@ -509,123 +455,44 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					}
 					
 					
-				} while (true);
+				} 
 			} else  { 	log("\nFAIL: C stack trace: "); log(unw_strerror(err));log("\n");  };
 		} else  { 		log("\nFAIL: C stack trace: "); log(unw_strerror(err));log("\n");  };
 		
-		//if (got_frame) { // todo: stack overflow
-		//	log("trying to resume\n");
-		//	return;
-		//}
 		
-	} else  { log("\nFAIL: C Stack Trace\n"); };
+	} else  { log("\nFAIL:c_stack\n"); };
 	
-
-	/*
-	 // LEGACY VER
-	log("Stack trace:\n");
 	
-	checkpoint {
-		array++;
-		size = backtrace(array, BACKTRACE_DEPTH - 1);
-
-		bool found = false;
-		for (i = 0; i < size && i < 5; ++i) {
-			if (array[i]==caller_address) {
-				found = true;
-				break;
-			}
-		}	
-		
-		
-		//crash_infinite
-
-		if (!found) {
-			array--;
-			array[0] = caller_address;
-			size++;
-		}
-		
-		
-		
-		 //printStackTrace(array,size);
-		 
-		messages = backtrace_symbols_new(array, size);
-
-		
-		
-		for (i = 0; i < size && messages != NULL; ++i) {
-			if (strstr(messages[i],"Host_RunFrame") != NULL) {
-				log( "<Snip Host Frames>\n");
-				//TEST int *p = NULL; *p = 1;
-				break;
-			}
-			logf( "> %i\t%s\n", i, messages[i]);
-		}
-		
-		// otherwise dont bother
-		if (crash_sg_nr == SIGUSR2) {
-			free(messages); 
-		}
-	} else {
-		log("Failed printing backtrace!\n");
-	}
 	
-	checkpoint {
-		
-			 
-		log("Stack trace:\n");
-		
-		checkpoint {
-			messages = backtrace_symbols(array, size);
-
-			for (i = 0; i < size && messages != NULL; ++i) {
-				if (strstr(messages[i],"RunFrame") != NULL) {
-					log( "<Snip Host Frames>\n");
-					//TEST int *p = NULL; *p = 1;
-					break;
-				}
-				logf( "> %i\t%s\n", i, messages[i]);
-			}
-			
-			// otherwise dont bother
-			if (crash_sg_nr == SIGUSR2) {
-				free(messages); 
-			}
-		}	else  { 
-			log("Alternative backtrace failed too :(\n");
-		}
-	}
-	*/
-	
-	///////////////////
-	
-	checkpoint {
+	checkpoint { // Check Lua trace
 		if (GLUA) {
 			lua_stacktrace(GLUA);
 		} else {
-			log("\nGLUA is NULL! (map change?)\n");
+			log("\nERR:null_lua\n");
 		}
 	} else  { log("\nFAIL:luatrace\n"); }
 	
-	
-	checkpoint {
+	checkpoint { // Check Lua's stack
 		if (GLUA) {
 			lua_dostackprint(GLUA,crash_sg_nr == SIGUSR2);
 		} else {
-			log("\nGLUA is NULL! (map change?)\n");
+			log("\nERR:null_lua\n");
 		}
 	} else  { log("\nFAIL:luastack\n"); }
 	
-	in_fail = false;
-	shouldjump = 0;
+	checkpoint_end;
 	
+	in_fail = false;
+	
+
 	if (crash_sg_nr == SIGUSR2) 
 	{
 		log("SIGUSR2:END\n\n");
 		errno = saved_errno;
 		return;
 	}
+	
+	// Return to other signal handlers. Disable this?
 	
 	log("EOF:U");
 	for(i = 0; signal_handlers[i].type != -1; ++i)
@@ -717,18 +584,18 @@ extern "C" int lua_docrash_thread(lua_State *L) {
 #endif
 
 void setup_outfile() {
-	char fname[64];
-	sprintf(fname,"logs/%lu.log",time(NULL));
-	logf("gmsv_segfault: Logging to %s\n",fname);
+	char func_name[64];
+	sprintf(func_name,"logs/%lu.log",time(NULL));
+	logf("gmsv_segfault: Logging to %s\n",func_name);
 
-	if (fname != NULL)
+	if (func_name != NULL)
 	{
-		logfile = open (fname, O_TRUNC | O_WRONLY | O_CREAT, 0666);
+		logfile = open (func_name, O_TRUNC | O_WRONLY | O_CREAT, 0666);
 		if (logfile == -1) {
 			logfile = 0;
 		} else {
 			unlink(					"logs/latest.log");
-			symlink(basename(fname),"logs/latest.log");
+			symlink(basename(func_name),"logs/latest.log");
 		}
 	}
 	
@@ -774,7 +641,8 @@ inline void Setup() {
 		logf("sigaltstack errno = %d\n", errno);
 	}
 
-	demanglealloc = (char *) malloc(DEMANGLE_LEN);
+	static char demanglealloc_mem[DEMANGLE_LEN];
+	demanglealloc = demanglealloc_mem;
 	demanglealloc[0]=0x00;
 
 	signal(SIGINT,disable_ctrl_c);
@@ -798,6 +666,23 @@ inline void Setup() {
 extern "C" __attribute__( ( visibility("default") ) ) int gmod13_open( lua_State* L )
 {
 	GLUA = L;
+
+	void *lHandle = dlopen( "garrysmod/bin/server_srv.so", RTLD_LAZY );
+	if ( lHandle )
+	{
+		
+		func_PhysicsGameSystem = (tPhysicsGameSystem)ResolveSymbol( lHandle, "_Z17PhysicsGameSystemv" );
+		if (!func_PhysicsGameSystem)
+		{
+			log("Function PhysicsGameSystem missing!!!\n");
+		}
+		dlclose( lHandle );
+	} 
+	else 
+	{
+		log("Finding server_srv failed???\n");
+	}
+
 
 	#ifdef CRASH_DEBUG
 	//lua_register(L,"dumpstack",lua_dostackprint);

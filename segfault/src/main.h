@@ -24,6 +24,7 @@
 #include <link.h>
 #include <fcntl.h>
 #include <setjmp.h>
+#include "memutils.h"
 #include <cxxabi.h>
 #include <sys/types.h>
  
@@ -92,9 +93,16 @@ void log(const char * str, int len) {
 };
 
 //#define log(s) if (logfile) write (logfile, (s==NULL)?"NULL":s, strlen ((s==NULL)?"NULL":s)); write (2, (s==NULL)?"NULL":s, strlen ((s==NULL)?"NULL":s))
-#define logf(a,...) __log_len__ = snprintf (__log_arr__, 255,a, ##__VA_ARGS__);\
+#define logf(a,...) { __log_len__ = snprintf (__log_arr__, 255,a, ##__VA_ARGS__);\
 					if (logfile) ___foo_ret___ = write (logfile,	__log_arr__, __log_len__ ); \
-					___foo_ret___ = write (2, 		__log_arr__, __log_len__ )
+					___foo_ret___ = write (2, 		__log_arr__, __log_len__ ); }
+
+inline bool starts_with(const char *str,const char *pre)
+{
+    size_t lenpre = strlen(pre);
+    size_t lenstr = strlen(str);
+    return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
+}
 
 struct Handler
 {	int type;
@@ -122,7 +130,7 @@ Handler signal_handlers[] =
 
 static ucontext_t thread_context;
 static ucontext_t scheduler_context;
-char thread_stack[STACKSIZE];
+//char thread_stack[STACKSIZE];
 struct sigaction sih;
 struct sigaction old_sih;
 	
@@ -156,3 +164,17 @@ bool cause_stackoverflow(unsigned long val) {
 	
 }
 #endif
+
+
+
+// func_PhysicsGameSystem
+class CPhysicsHook;
+typedef CPhysicsHook* (*tPhysicsGameSystem ) ( ) ;
+tPhysicsGameSystem func_PhysicsGameSystem = NULL;
+void SetPhysPaused(bool should) 
+{
+	int physhook_class = (int)func_PhysicsGameSystem();
+	bool *m_bPaused;
+	m_bPaused = (bool *)(physhook_class + 88); // from CPhysicsHook::LevelInitPostEntity() 
+	*m_bPaused = should;
+}
