@@ -14,7 +14,7 @@ SOLUTION"segfault"
 	PROJECT()
 		
 		INCLUDES	"lua51"
-		INCLUDES        "sigscanning"
+		INCLUDES    "sigscanning"
 		
 		configuration	("windows")
 		configuration	("linux")

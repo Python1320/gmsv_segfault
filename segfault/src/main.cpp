@@ -1,4 +1,4 @@
-#define CRASH_DEBUG
+//#define CRASH_DEBUG
 #include "main.h"
 
 
@@ -171,7 +171,7 @@ unsigned char jumps=0;
 
 #define checkpoint_end shouldjump = 0
 
-#define DEMANGLE_LEN 511
+#define DEMANGLE_LEN 1024
 
 char *demanglealloc;
 inline char * demangle_func(const char * funcName) {
@@ -182,6 +182,7 @@ inline char * demangle_func(const char * funcName) {
 	//logf("Demangle: '%s' '%s'",funcName,demanglealloc); log(".\n");
 	char* demangled = abi::__cxa_demangle(funcName, demanglealloc, &alloclen, &status);
 	//log("DemangleFIN ");logf(": '%s' '%s' '%s'\n",funcName,demanglealloc,demangled);
+	demanglealloc[DEMANGLE_LEN-1]='\0';
 
 	if (status == 0) {
 		if ( demangled && (demangled==demanglealloc) ) {
@@ -222,7 +223,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 	// SIGUSR1 == watchdog signaled us to break from lua fuckups
 	if (sig_nr == SIGUSR1) 
 	{
-		log("SIGUSR1:lua_sethook hack\n");
+		log("SIGUSR1:lua_sethook_hack\n");
 		lua_sethook(GLUA,lua_hookhack,LUA_MASKCOUNT,10);
 		return;
 	}
@@ -376,12 +377,12 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 					}
 					
 					unw_word_t  offset, pc, sp;
-					char        func_name[255];
-
+					char        func_name[512];
+					func_name[0] = '\0';
+					
 					unw_get_reg(&cursor, UNW_REG_IP, &pc);
 					unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
-					func_name[0] = '\0';
 					(void) unw_get_proc_name(&cursor, func_name, sizeof(func_name), &offset);
 					
 					if (strstr(func_name,"PhysFrame") != NULL) {
