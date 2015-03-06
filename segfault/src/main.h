@@ -31,7 +31,7 @@
 #include <sys/syscall.h>
 
 #include <sys/stat.h>
-#include <asm/sigcontext.h>
+//#include <asm/sigcontext.h>
 #include <execinfo.h>
 	//#undef backtrace_symbols;
 //#include "bridge.h"
@@ -77,9 +77,9 @@ void log(const char * str) {
 	}
 	int len = strlen(s);
 	if (logfile) {
-		write (logfile, s, len); 
+		if(write (logfile, s, len)){}
 	}
-	write (2, s, strlen(s));
+	if(write (2, s, strlen(s))) {}
 };
 void log(const char * str, int len) {
 	char * s = (char *)"<NULLSTR>";
@@ -87,9 +87,9 @@ void log(const char * str, int len) {
 		s=(char *)str;
 	}
 	if (logfile) {
-		write (logfile, s, len); 
+		if (write (logfile, s, len)) {}
 	}
-	write (2, s, len);
+	if(write (2, s, len)){}
 };
 
 //#define log(s) if (logfile) write (logfile, (s==NULL)?"NULL":s, strlen ((s==NULL)?"NULL":s)); write (2, (s==NULL)?"NULL":s, strlen ((s==NULL)?"NULL":s))
@@ -177,4 +177,22 @@ void SetPhysPaused(bool should)
 	bool *m_bPaused;
 	m_bPaused = (bool *)(physhook_class + 88); // from CPhysicsHook::LevelInitPostEntity() 
 	*m_bPaused = should;
+}
+
+bool StopPhysicsDamnit() {
+
+	// dlopen from a signal, are you NUTS?
+    void *handle = dlopen ("garrysmod/lua/bin/gmsv_physframe_linux.dll", RTLD_LAZY);
+	if (!handle)
+	{
+		handle = dlopen ("gmsv_physframe_linux.dll", RTLD_LAZY);
+		if (!handle) return false;
+	}
+
+	void (*func)() = (void (*)())dlsym(handle, "stop_physics_damnit");
+	if (func) {
+		func();
+	}
+	dlclose(handle);
+	return func!=NULL;
 }

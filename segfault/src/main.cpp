@@ -318,10 +318,10 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		logf( "REG: gs %x fs: %x es: %x ds: %x edi: %x esi: %x ebp: %x esp: %x ebx: %x edx: %x ecx: %x\n",
 				 ctx->uc_mcontext.gregs [REG_GS], ctx->uc_mcontext.gregs [REG_FS], ctx->uc_mcontext.gregs [REG_ES], ctx->uc_mcontext.gregs [REG_DS],
 				 ctx->uc_mcontext.gregs [REG_EDI], ctx->uc_mcontext.gregs [REG_ESI], ctx->uc_mcontext.gregs [REG_EBP], ctx->uc_mcontext.gregs [REG_ESP],
-				 ctx->uc_mcontext.gregs [REG_EBX], ctx->uc_mcontext.gregs [REG_EDX], ctx->uc_mcontext.gregs [REG_ECX], ctx->uc_mcontext.gregs [REG_EAX]);
+				 ctx->uc_mcontext.gregs [REG_EBX], ctx->uc_mcontext.gregs [REG_EDX], ctx->uc_mcontext.gregs [REG_ECX]);
 				logf( "REG: eax: %x trap: %u err: %x eip: %x cs: %x flag: %x sp: %x ss: %x cr2: %lx\n",
-				 ctx->uc_mcontext.gregs [REG_TRAPNO], ctx->uc_mcontext.gregs [REG_ERR], ctx->uc_mcontext.gregs [REG_EIP], ctx->uc_mcontext.gregs [REG_CS],
-				 ctx->uc_mcontext.gregs [REG_EFL], ctx->uc_mcontext.gregs [REG_UESP], ctx->uc_mcontext.gregs [REG_SS], ctx->uc_mcontext.cr2
+				 ctx->uc_mcontext.gregs [REG_EAX], ctx->uc_mcontext.gregs [REG_TRAPNO], ctx->uc_mcontext.gregs [REG_ERR], ctx->uc_mcontext.gregs [REG_EIP],
+				 ctx->uc_mcontext.gregs [REG_CS], ctx->uc_mcontext.gregs [REG_EFL], ctx->uc_mcontext.gregs [REG_UESP], ctx->uc_mcontext.gregs [REG_SS], ctx->uc_mcontext.cr2
 		);
 	} else  { log("Failed printing registers!\n"); }
 	
@@ -334,9 +334,9 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 		
 		// check for invalid program counter
 		if (crash_sg_nr==SIGSEGV && caller_address<(void*)0xFF) {
-			log("\nTRACE: (Info lost, called NULL function? Recovering at least return info: EIP <- ESP ");
+			log("\nTRACE:EIP2ESP_RECOVERY");
 			size_t ESP(*reinterpret_cast<size_t *> (ctx->uc_mcontext.gregs[REG_ESP]));
-			logf("%p",ESP);
+			logf("%p",(void*)ESP);
 			if (ESP>0xFF) {
 				SET_IP=ESP;//__builtin_return_address(0);
 			} else 
@@ -398,12 +398,17 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 							in_fail = false;
 							shouldjump = 0;
 							
-							log("Trying to resume executing after failed physics\n");
+							log("PHYSFAIL:RESUME\n");
 							
 							SetPhysPaused(true);
+							if (StopPhysicsDamnit()) {
+								log("PHYSSTOP:CALLED\n");
+							} else {
+								log("PHYSSTOP:FAIL\n");								
+							}
 							
 							int reterr = unw_resume(&cursor);
-							log("Resume Failed: ");log(unw_strerror(reterr));log("\n"); 
+							log("RESUME:FAIL: ");log(unw_strerror(reterr));log("\n"); 
 							in_fail = true;
 							return;
 						}
@@ -424,8 +429,8 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 						fallback_name = info.dli_sname;
 					}
 					
-					logf("%2i %p %p ", j, pc, sp);
-					logf("%s +%p ",fallback_name?fallback_name:demangled?demangled:( (func_name[0]=='\0')?"?":func_name), offset);
+					logf("%2i %p %p ", j, (void*)pc, (void*)sp);
+					logf("%s +%p ",fallback_name?fallback_name:demangled?demangled:( (func_name[0]=='\0')?"?":func_name), (void*)offset);
 					if (unw_is_signal_frame(&cursor)>0) log("(SF)");
 					if (dladdr((void *)pc, &info)) {
 						log(" \t\t@ ");
@@ -438,7 +443,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 						}
 						
 						uintptr_t relative = ((uintptr_t)pc)-((uintptr_t)info.dli_fbase);
-						logf(" +%p",relative);
+						logf(" +%p",(void*)relative);
 					} else {
 						log(" \t\t<dladdr fail>");
 					}
@@ -596,7 +601,9 @@ void setup_outfile() {
 			logfile = 0;
 		} else {
 			unlink(					"logs/latest.log");
-			symlink(basename(func_name),"logs/latest.log");
+			if (symlink(basename(func_name),"logs/latest.log")) {
+				//TODO
+			}
 		}
 	}
 	

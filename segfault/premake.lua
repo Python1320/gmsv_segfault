@@ -6,7 +6,7 @@ dofile("../common.lua")
 SOLUTION"segfault"
 	INCLUDES	"lua51"
 	INCLUDES        "sigscanning"
-	defines		{"NDEBUG"}
+	defines		{"NO_SOURCE_SDK"}
 	removedefines	"_GNU_SOURCE"
 	WINDOWS()
 	LINUX()
@@ -20,6 +20,7 @@ SOLUTION"segfault"
 		configuration	("linux")
 			links"iberty"
 			links_static"unwind"
+			links_static"lzma"
 			links"pthread"
 			buildoptions 		{ "-fpermissive" }
 						
