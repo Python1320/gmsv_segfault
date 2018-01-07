@@ -389,7 +389,7 @@ static void ERROR_SIGNAL_HANDLER_FUNC(int sig_nr, siginfo_t* info, void *ucontex
 						found_PhysFrame = true;
 					}
 					
-					if (strstr(func_name,"Host_RunFrame") != NULL) {
+					if ((crash_sg_nr != SIGUSR2) && strstr(func_name,"Host_RunFrame") != NULL) {
 						//got_frame = true;
 						
 						// Resume hack :|
