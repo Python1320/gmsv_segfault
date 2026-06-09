@@ -39,17 +39,19 @@ Crash log is written to `$PWD/logs/<timestamp>.log` with a symlink at `logs/late
 
 ### Notes
 
-Debug builds (`#define CRASH_DEBUG`) register:
+ - Debug builds (`#define CRASH_DEBUG`) register:
 
-| Lua function | C function | Description |
-|---|---|---|
-| `docrash` | `lua_dosegfault` | Triggers a SIGSEGV |
-| `docrash_stack` | `lua_dostack` | Triggers a stack overflow |
-| `docrash_nullptr` | `lua_docrash_nullptr` | Calls through a null pointer |
-| `docrash_thread` | `lua_docrash_thread` | Crashes in a separate thread |
+    | Lua function | C function | Description |
+    |---|---|---|
+    | `docrash` | `lua_dosegfault` | Triggers a SIGSEGV |
+    | `docrash_stack` | `lua_dostack` | Triggers a stack overflow |
+    | `docrash_nullptr` | `lua_docrash_nullptr` | Calls through a null pointer |
+    | `docrash_thread` | `lua_docrash_thread` | Crashes in a separate thread |
 
 
-Originally extracted from [gitlab.com/metastruct/internal/gbins](https://gitlab.com/metastruct/internal/gbins) (internal)
+ - Originally extracted from [gitlab.com/metastruct/internal/gbins](https://gitlab.com/metastruct/internal/gbins) (internal)
+ - Depends on [`gmsv_physframe_linux.dll`](https://github.com/Python1320/gmsv_physframe) for stopping physics in a way that (sometimes) prevents further crashing to allow the occasional countdown while players can save their dupes.
+
 
 ## Thanks
 
