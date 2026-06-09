@@ -4,6 +4,7 @@
 > HERE BE DRAGONS
 
 *VERY EXPERIMENTAL (and old) Garry's Mod server binary module for crash signal handling and debugging.*
+*Used on [Metastruct](https://metastruct.github.io) and partner servers for past ~10 years for the (very frequent) crash reason debugging.*
 
 Catches fatal signals (SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2) and dumps:
 - Signal info and fault address
@@ -55,4 +56,4 @@ Crash log is written to `$PWD/logs/<timestamp>.log` with a symlink at `logs/late
 
 ## Thanks
 
-Garry, FreezeBug, BlueShank, MetaMan, CapsAdmin, etc, etc etc
+Garry, [Metastruct](https://metastruct.github.io), FreezeBug, BlueShank, MetaMan, SpiralP, CapsAdmin, etc, etc etc

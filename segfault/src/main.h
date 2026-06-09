@@ -4,8 +4,6 @@
 // 		http://www.ibm.com/developerworks/library/l-reent/
 //		https://www.securecoding.cert.org/confluence/display/seccode/SIG30-C.+Call+only+asynchronous-safe+functions+within+signal+handlers
 //
-// CREDITS:
-// 		Way too many to release this, I had 300 browser tabs open at one point
 
 #include "memutils.h"
 #include <bfd.h>

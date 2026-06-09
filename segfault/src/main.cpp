@@ -1,54 +1,6 @@
 // #define CRASH_DEBUG
 #include "main.h"
 
-/*static const char* luatypes[] =
-{
-	"nil",
-	"bool",
-	"lightuserdata",
-	"number",
-	"string",
-	"table",
-	"function",
-	"userdata",
-	"thread",
-	"entity",
-	"vector",
-	"angle",
-	"physobj",
-	"save",
-	"restore",
-	"damageinfo",
-	"effectdata",
-	"movedata",
-	"recipientfilter",
-	"usercmd",
-	"vehicle",
-	"material",
-	"panel",
-	"particle",
-	"particleemitter",
-	"texture",
-	"usermsg",
-	"convar",
-	"mesh",
-	"matrix",
-	"sound",
-	"pixelvishandle",
-	"dlight",
-	"video",
-	"file",
-
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0
-
-};
-*/
 // extern "C"
 inline int lua_dostackprint(lua_State* l, bool nondestructive)
 {
