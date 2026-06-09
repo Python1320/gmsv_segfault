@@ -1,0 +1,62 @@
+START:1740881496
+
+
+CRASH: Signal=11,1
+
+TIME:1741005004
+Fault=0x6 Caller=0xf37335ba
+REG: gs 63 fs: 0 es: 2b ds: 2b edi: 3c4cdd64 esi: 0 ebp: ffff85c8 esp: ffff8590 ebx: ffffffff edx: 4795a1c0 ecx: 3221ec80
+REG: eax: 5092b8f0 trap: 14 err: 4 eip: f37335ba cs: 23 flag: 210246 sp: ffff8590 ss: 2b cr2: 6
+
+TRACE
+ 1 0xdefef8ef 0xdf012e80 ERROR_SIGNAL_HANDLER_FUNC(int, siginfo_t*, void*) +0x6ff  		@ gmsv_segfault_linux.dll +0x68ef
+ 2 0xf7fc75a0 0xdf0131c0 ? +0x6ff (SF) 		@ linux-gate.so.1 +0x5a0
+ 3 0xf37335ba 0xffff8590 IVP_Simulation_Unit::remove_controller_of_core(IVP_Core*, IVP_Controller*) +0x4a  		@ vphysics_srv.so +0x1005ba
+ 4 0xf373377d 0xffff85d0 IVP_Core::rem_core_controller(IVP_Controller*) +0x8d  		@ vphysics_srv.so +0x10077d
+ 5 0xf37340fe 0xffff8600 IVP_Controller_Manager::remove_controller_from_environment(IVP_Controller_Dependent*, IVP_BOOL) +0x4e  		@ vphysics_srv.so +0x1010fe
+ 6 0xf36ab5c7 0xffff8640 hk_Local_Constraint_System::deactivate() +0x27  		@ vphysics_srv.so +0x785c7
+ 7 0xf36ab6d8 0xffff8660 hk_Local_Constraint_System::add_constraint(hk_Constraint*, int) +0xf8  		@ vphysics_srv.so +0x786d8
+ 8 0xf36aea24 0xffff86a0 hk_Constraint::hk_Constraint(hk_Local_Constraint_System*, hk_Rigid_Body*, hk_Rigid_Body*, IVP_CONTROLLER_PRIORITY, int) +0x54  		@ vphysics_srv.so +0x7ba24
+ 9 0xf36aeecf 0xffff86d0 hk_Fixed_Constraint::hk_Fixed_Constraint(hk_Local_Constraint_System*, hk_Fixed_BP const*, hk_Rigid_Body*, hk_Rigid_Body*) +0x3f  		@ vphysics_srv.so +0x7becf
+10 0xf366ca6b 0xffff8700 CPhysicsConstraint::InitFixed(IVP_Environment*, CPhysicsConstraintGroup*, constraint_fixedparams_t const&) +0x1eb  		@ vphysics_srv.so +0x39a6b
+11 0xf366f9e8 0xffff87c0 CreateFixedConstraint(IVP_Environment*, CPhysicsObject*, CPhysicsObject*, IPhysicsConstraintGroup*, constraint_fixedparams_t const&) +0x48  		@ vphysics_srv.so +0x3c9e8
+12 0xf2cffa1d 0xffff87f0 CPhysFixed::CreateConstraint(IPhysicsConstraintGroup*, hl_constraint_info_t const&) +0x13d  		@ server_srv.so +0xd98a1d
+13 0xf2d01e21 0xffff8910 CPhysConstraint::ActivateConstraint() +0x1c1  		@ server_srv.so +0xd9ae21
+14 0xf2d01f90 0xffff8970 CPhysConstraint::Activate() +0x30  		@ server_srv.so +0xd9af90
+15 0xf26a0475 0xffff8990 Entity__Activate(ILuaInterface*) +0x25  		@ server_srv.so +0x739475
+16 0xf1ae62d9 0xffff89b0 lj_BC_FUNCC +0x32  		@ lua_shared_srv.so +0x5d2d9
+17 0xf1ad9758 0xffff89e0 lua_pcall +0x48  		@ lua_shared_srv.so +0x50758
+18 0xf1aa2c6c 0xffff8a00 CLuaInterface::PCall(int, int, int) +0x2c  		@ lua_shared_srv.so +0x19c6c
+19 0xf1aac8f6 0xffff8a30 CLuaInterface::CallFunctionProtected(int, int, bool) +0x76  		@ lua_shared_srv.so +0x238f6
+20 0xf1aa3d9d 0xffff8ac0 CLuaInterface::CallInternalGetBool(int) +0x2d  		@ lua_shared_srv.so +0x1ad9d
+21 0xf253c43a 0xffff8af0 CWeaponSWEP::PrimaryAttack() +0x4a  		@ server_srv.so +0x5d543a
+22 0xf253c5fa 0xffff8b10 CWeaponSWEP::ItemPostFrame() +0x10a  		@ server_srv.so +0x5d55fa
+23 0xf24c418f 0xffff8b30 CBasePlayer::ItemPostFrame() +0x1ef  		@ server_srv.so +0x55d18f
+24 0xf2a674c2 0xffff8b80 CHL2_Player::ItemPostFrame() +0x12  		@ server_srv.so +0xb004c2
+25 0xf2d4ac33 0xffff8ba0 CBasePlayer::PostThink() +0x153  		@ server_srv.so +0xde3c33
+26 0xf2a65da2 0xffff8c00 CHL2_Player::PostThink() +0x12  		@ server_srv.so +0xafeda2
+27 0xf2c4d187 0xffff8c20 CHL2MP_Player::PostThink() +0x27  		@ server_srv.so +0xce6187
+28 0xf2512a02 0xffff8c70 CGMOD_Player::PostThink() +0xa2  		@ server_srv.so +0x5aba02
+29 0xf2d59596 0xffff8cb0 CPlayerMove::RunPostThink(CBasePlayer*) +0x26  		@ server_srv.so +0xdf2596
+30 0xf2d59ebc 0xffff8cf0 CPlayerMove::RunCommand(CBasePlayer*, CUserCmd*, IMoveHelper*) +0x83c  		@ server_srv.so +0xdf2ebc
+31 0xf2d526c3 0xffff8d70 CBasePlayer::PlayerRunCommand(CUserCmd*, IMoveHelper*) +0xb3  		@ server_srv.so +0xdeb6c3
+32 0xf2d5031e 0xffff8db0 CBasePlayer::PhysicsSimulate() +0x3de  		@ server_srv.so +0xde931e
+33 0xf25c949c 0xffff8e30 CBaseEntity::PhysicsSimulate() +0x16c  		@ server_srv.so +0x66249c
+34 0xf25c949c 0xffff8e90 CBaseEntity::PhysicsSimulate() +0x16c  		@ server_srv.so +0x66249c
+35 0xf2d1e5c3 0xffff8ef0 Physics_SimulateEntity(CBaseEntity*) +0x303  		@ server_srv.so +0xdb75c3
+36 0xf2d1e9c1 0xffff8f30 Physics_RunThinkFunctions(bool) +0x1c1  		@ server_srv.so +0xdb79c1
+37 0xf2935157 0xffff9ec0 CServerGameDLL::GameFrame(bool) +0x117  		@ server_srv.so +0x9ce157
+38 0xf6c6d608 0xffff9f10 SV_Think(bool) +0x88  		@ engine_srv.so +0x1cb608
+39 0xf6c6e7b3 0xffff9f50 SV_Frame(bool) +0xe3  		@ engine_srv.so +0x1cc7b3
+END:Host_RunFrame
+
+LUA
+| 0	[C]:-1: Activate
+| 1	lua/includes/modules/constraint.lua:470: oldFunc
+| 2	lua/advdupe2/sv_misc.lua:85: Weld
+| 3	gamemodes/sandbox/entities/weapons/gmod_tool/stools/weld.lua:59: LeftClick
+| 4	gamemodes/sandbox_modded/entities/weapons/gmod_tool/shared.lua:270: ?
+
+STACK:1: <Entity>.
+.
+EOF:U
