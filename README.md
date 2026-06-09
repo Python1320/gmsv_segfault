@@ -32,6 +32,7 @@ Crash log is written to `$PWD/logs/<timestamp>.log` with a symlink at `logs/late
     apt-get install libunwind-dev binutils-dev liblzma-dev build-essential
     ```
 2. Copy this repo inside the gbins alongside all the other binary modules (*or really just rewrite build, please*)
+
 **Install**
  1. Put `gmsv_segfault_linux.dll` into `garrysmod/lua/bin/` (there is a precompiled version in Releases).
  2. install autorun lua to server.
