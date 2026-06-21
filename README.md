@@ -6,6 +6,8 @@
 *VERY EXPERIMENTAL (and old) Garry's Mod server binary module for crash signal handling and debugging.*
 *Used on [Metastruct](https://metastruct.github.io) and partner servers for past ~10 years for the (very frequent) crash reason debugging.*
 
+**New alterative fresh out of the oven thanks to BlueShank:** https://github.com/blueshank-gh/plugin_crashcapture
+
 <img width="788" height="463" alt="image" src="https://github.com/user-attachments/assets/8378e9d5-a182-4f95-8c38-838d4cad7cbc" />
 
 Catches fatal signals (SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGQUIT, SIGHUP, SIGUSR1, SIGUSR2) and dumps:
